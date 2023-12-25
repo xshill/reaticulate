@@ -17,6 +17,7 @@ local rfx = require 'rfx'
 local reabank = require 'reabank'
 local articons = require 'articons'
 local log = rtk.log
+require 'lib.utils'
 
 
 local screen = {
@@ -57,32 +58,6 @@ local screen = {
                   'Open the Track Settings page to learn more.'
     }
 }
-
--- SublimeText style substring match
-local function get_filter_score(name, filter)
-    local last_match_pos = 0
-    local score = 0
-    local match = false
-
-    local filter_pos = 1
-    local filter_char = filter:sub(filter_pos, filter_pos)
-    for name_pos = 1, #name do
-        local name_char = name:sub(name_pos, name_pos)
-        if name_char == filter_char then
-            local distance = name_pos - last_match_pos
-            score = score + (100 - distance)
-            if filter_pos == #filter then
-                -- We have matched all characters in the filter term
-                return score
-            else
-                last_match_pos = name_pos
-                filter_pos = filter_pos + 1
-                filter_char = filter:sub(filter_pos, filter_pos)
-            end
-        end
-    end
-    return 0
-end
 
 -- For the currently visible banks, show only articulations matching the given filter.
 function screen.filter_articulations(filter)

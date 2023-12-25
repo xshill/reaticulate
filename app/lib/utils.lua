@@ -40,6 +40,16 @@ Path.join = function(first, ...)
     return joined
 end
 
+function table.find(t, value)
+    for k, v in ipairs(t) do
+        if v == value then
+            return k
+        end
+    end
+    
+    return nil
+end
+
 
 local notes = {'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'}
 -- Given a note number between 0-127, returns the stringified note name (e.g. 'C4').
@@ -48,6 +58,26 @@ local notes = {'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'}
 function note_to_name(note)
     local offset = 2 - reaper.SNM_GetIntConfigVar("midioctoffs", 0)
     return string.format('%s%d', notes[(note % 12) + 1], math.floor(note / 12) - offset)
+end
+
+function name_to_note(name)
+    local letter, octave
+    if name:sub(2, 2) == '#' then
+        letter = name:sub(1, 2)
+        octave = tonumber(name:sub(3, #name))
+    else
+        letter = name:sub(1, 1)
+        octave = tonumber(name:sub(2, #name))
+    end
+
+    local offset = 2 - reaper.SNM_GetIntConfigVar("midioctoffs", 0)
+    local index = table.find(notes, letter)
+
+    if index == nil then
+        error('Invalid note name: ' .. name .. ' (make sure to use sharps instead of flats)')
+    end
+
+    return (index - 1) + (octave + offset) * 12
 end
 
 -- Returns a table containing positional elements for all arguments passed to this
@@ -187,4 +217,29 @@ function call_and_preserve_selected_tracks(func, ...)
     end
     reaper.PreventUIRefresh(-1)
     return r
+end
+
+function get_filter_score(name, filter)
+    local last_match_pos = 0
+    local score = 0
+    local match = false
+
+    local filter_pos = 1
+    local filter_char = filter:sub(filter_pos, filter_pos)
+    for name_pos = 1, #name do
+        local name_char = name:sub(name_pos, name_pos)
+        if name_char == filter_char then
+            local distance = name_pos - last_match_pos
+            score = score + (100 - distance)
+            if filter_pos == #filter then
+                -- We have matched all characters in the filter term
+                return score
+            else
+                last_match_pos = name_pos
+                filter_pos = filter_pos + 1
+                filter_char = filter:sub(filter_pos, filter_pos)
+            end
+        end
+    end
+    return 0
 end

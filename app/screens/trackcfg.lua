@@ -17,6 +17,7 @@ local rfx = require 'rfx'
 local reabank = require 'reabank'
 local feedback = require 'feedback'
 local log = rtk.log
+local DragGroup = require 'ux.draggroup'
 
 local screen = {
     minw = 250,
@@ -30,7 +31,8 @@ local screen = {
     track_select_feedback_menu = nil,
     -- The max (i.e. worst) error affecting the current track, as determined by
     -- check_errors*()
-    error = nil
+    error = nil,
+    drag_group = nil,
 }
 
 local function channel_menu_to_channel(id)
@@ -71,11 +73,9 @@ function screen.init()
     -- Create an artificial drop target at the bottom of the list so that it's
     -- possible to drag a bank to the end of the list.
     local spacer = rtk.Spacer{h=1.0, w=1.0, y=0, z=10, position='absolute'}
-    spacer.ondropfocus = function(self, event, src, srcbankbox)
-        screen.move_bankbox(srcbankbox, nil)
-        return true
-    end
     vbox:add(spacer)
+
+    screen.drag_group = DragGroup('banks', screen.banklist, nil, spacer)
 
     local add_bank_button = rtk.Button{label='Add Bank to Track', icon='add_circle_outline', color='#2d5f99'}
     add_bank_button.onclick = function()
@@ -391,20 +391,6 @@ function screen.create_bank_ui(guid, srcchannel, dstchannel, dstbus, name)
     bankbox.fallback_guid = guid
     bankbox.fallback_name = name
 
-    bankbox.ondropfocus = function(self, event, _, srcbankbox)
-        return true
-    end
-    bankbox.ondropmousemove = function(self, event, dragging, srcbankbox)
-        if self ~= srcbankbox and dragging.bankbox then
-            local rely = event.y - self.clienty - self.calc.h / 2
-            if rely < 0 then
-                screen.move_bankbox(srcbankbox, bankbox, -1)
-            else
-                screen.move_bankbox(srcbankbox, bankbox, 1)
-            end
-        end
-    end
-
     -- Bank row
     local drag_handle = rtk.ImageBox{
         image=rtk.Image.make_icon('drag_vertical:large'),
@@ -413,23 +399,9 @@ function screen.create_bank_ui(guid, srcchannel, dstchannel, dstbus, name)
         show_scrollbar_on_drag=true,
         tooltip='Click-drag to reorder bank'
     }
-    -- Used by ondropmousemove() above to ensure the widget being dragged is a bankbox and
-    -- not something incompatible (like e.g. the resize handle for undocked windows).
-    drag_handle.bankbox = true
-    drag_handle.ondragstart = function(event)
-        bankbox:attr('bg', '#5b7fac30')
-        bankbox:attr('tborder', {'#497ab7', 2})
-        bankbox:attr('bborder', bankbox.tborder)
-        return bankbox
-    end
-    drag_handle.ondragend = function(event)
-        bankbox:attr('bg', nil)
-        bankbox:attr('tborder', {'#00000000', 2})
-        bankbox:attr('bborder', bankbox.tborder)
-        screen.move_bankbox_finish()
-    end
-    drag_handle.onmouseenter = function() return true end
     row:add(drag_handle)
+    screen.drag_group:register(drag_handle, bankbox)
+
     local bank_menu = rtk.OptionMenu()
     row:add(bank_menu, {expand=1, fillw=true, rpadding=0})
     bankbox.bank_menu = bank_menu

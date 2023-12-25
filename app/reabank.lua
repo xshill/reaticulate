@@ -959,6 +959,61 @@ function reabank.parse_from_string(data, factory)
     return banks, dupes, dirty, outlines
 end
 
+function reabank.write_to_string(bank)
+    outlines = {}
+    -- Separator
+    table.insert(outlines, '//----------------------------------------------------------------------------')
+    table.insert(outlines, string.format('//! g="%s" n="%s"', bank.group, bank.shortname))
+
+    if bank.message and #bank.message > 0 then
+        table.insert(outlines, string.format('//! m="%s"', bank.message))
+    end
+
+    if bank.flags then
+        flag_values = {}
+        for flag, value in pairs(bank.flags) do
+            if value then
+                table.insert(flag_values, flag)
+            else
+                table.insert(flag_values, '!' .. flag)
+            end
+        end
+
+        if #flag_values > 0 then
+            table.insert(outlines, string.format('//! f=%s', table.concat(flag_values, ',')))
+        end
+    end
+
+    if bank.chase and #bank.chase > 0 then
+        table.insert(outlines, string.format('//! chase=%s', bank.chase))
+    end
+
+    if bank.off and #bank.off > 0 then
+        table.insert(outlines, string.format('//! off=%s', bank.off))
+    end
+
+    table.insert(outlines, string.format('//! id=%s', bank.guid))
+    table.insert(outlines, string.format('Bank * * %s', bank.name))
+
+    for i, art in ipairs(bank.articulations) do
+        local outputs = {}
+        for j, out in ipairs(art._outputs) do
+            local value = out.value
+            if out.type == 'note' or out.type == 'note-hold' then
+                local parts = string.split(out.value, ',')
+                parts[1] = name_to_note(parts[1])
+                value = table.concat(parts, ',')
+            end
+            table.insert(outputs, string.format('%s:%s', out.type, value))
+        end
+        local output_string = table.concat(outputs, '/')
+        table.insert(outlines, string.format('//! c=%s i=%s o=%s', art.color, art.iconname, output_string))
+        table.insert(outlines, string.format('%d %s', art.program, art.name))
+    end
+
+    return table.concat(outlines, '\n')
+end
+
 -- Parses both factory and user banks and updates bank lookup tables.
 function reabank.parseall()
     reabank.banks_by_guid = {}
@@ -1294,4 +1349,6 @@ function reabank.to_menu()
     return bankmenu
 end
 
+reabank.Articulation = Articulation
+reabank.Bank = Bank
 return reabank
